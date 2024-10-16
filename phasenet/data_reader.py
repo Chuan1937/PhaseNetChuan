@@ -13,7 +13,7 @@ import json
 import random
 from collections import defaultdict
 
-# import s3fs
+#import s3fs
 import h5py
 import obspy
 from scipy.interpolate import interp1d
@@ -229,18 +229,21 @@ class DataReader:
             meta = {}
             if len(npz["data"].shape) == 2:
                 meta["data"] = npz["data"][:, np.newaxis, :]
+                #二维变成三维
             else:
                 meta["data"] = npz["data"]
+
             if "p_idx" in npz.files:
                 if len(npz["p_idx"].shape) == 0:
-                    meta["itp"] = [[npz["p_idx"]]]
+                    meta["itp"] = [[npz["p_idx"]]]#标量
                 else:
-                    meta["itp"] = npz["p_idx"]
+                    meta["itp"] = npz["p_idx"]#数组
             if "s_idx" in npz.files:
                 if len(npz["s_idx"].shape) == 0:
                     meta["its"] = [[npz["s_idx"]]]
                 else:
                     meta["its"] = npz["s_idx"]
+
             if "itp" in npz.files:
                 if len(npz["itp"].shape) == 0:
                     meta["itp"] = [[npz["itp"]]]
@@ -251,6 +254,7 @@ class DataReader:
                     meta["its"] = [[npz["its"]]]
                 else:
                     meta["its"] = npz["its"]
+
             if "station_id" in npz.files:
                 meta["station_id"] = npz["station_id"]
             if "sta_id" in npz.files:
@@ -617,6 +621,7 @@ class DataReader:
             meta = {"data": data, "t0": t0, "station_id": station_id, "fname": fname.split("/")[-1]}
         return meta
 
+    #根据 P 波和 S 波的到达时间生成标签矩阵
     def generate_label(self, data, phase_list, mask=None):
         # target = np.zeros(self.Y_shape, dtype=self.dtype)
         target = np.zeros_like(data)
@@ -694,7 +699,10 @@ class DataReader:
 
         return shifted_sample, shift_pick(itp, shift), shift_pick(its, shift), shift
 
+
+    #多个地震事件堆叠到一起，应对复杂的场景，如重叠的 P 波和 S 波
     def stack_events(self, sample_old, itp_old, its_old, shift_range=None, mask_old=None):
+
         i = np.random.randint(self.num_data)
         base_name = self.data_list[i]
         if self.format == "numpy":
@@ -723,6 +731,7 @@ class DataReader:
 
         return sample_old, itp_old, its_old, mask_old
 
+    #截取特定时间窗口
     def cut_window(self, sample, target, itp, its, select_range):
         shift_pick = lambda x, shift: [[i - shift for i in trace] for trace in x]
         sample = sample[select_range[0] : select_range[1]]
@@ -749,13 +758,16 @@ class DataReader_train(DataReader):
             return (np.zeros(self.X_shape, dtype=self.dtype), np.zeros(self.Y_shape, dtype=self.dtype), base_name)
 
         sample = np.copy(meta["data"])
-        itp_list = meta["itp"]
-        its_list = meta["its"]
+        itp_list = meta["itp"]#p波
+        its_list = meta["its"]#s波
 
         sample = normalize(sample)
         if np.random.random() < 0.95:
+            #随机的时间偏移
             sample, itp_list, its_list, _ = self.random_shift(sample, itp_list, its_list, shift_range=self.shift_range)
+
             sample, itp_list, its_list, _ = self.stack_events(sample, itp_list, its_list, shift_range=self.shift_range)
+
             target = self.generate_label(sample, [itp_list, its_list])
             sample, target, itp_list, its_list = self.cut_window(sample, target, itp_list, its_list, self.select_range)
         else:

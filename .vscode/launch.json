@@ -1,0 +1,15 @@
+{
+    "configurations": [
+    // 添加python配置
+    {
+        "name": "Python: Current File",
+        "type": "python",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal"
+    },
+    ]
+    ,
+    "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}${env:PYTHONPATH}"},
+
+}
